@@ -1,0 +1,64 @@
+auth:
+  app_key: YOUR_APP_KEY_HERE
+  app_secret: YOUR_APP_SECRET_HERE
+  api_base_url: https://api.auki.network
+  dds_base_url: https://dds.auki.network
+domain:
+  map_endpoint: https://dsc.auki.network/spatial/crosssection
+  map_resolution: 20.0
+  refetch_elapsed_time: 300.0
+camera:
+  # Camera device index (integer) or path (string) for video device
+  # Examples: 0, 1, "/dev/video0", "/dev/video2"
+  device: 0
+  camera_matrix:
+  - - 0.0  # fx - focal length in x direction
+    - 0.0
+    - 0.0  # cx - principal point x
+  - - 0.0
+    - 0.0  # fy - focal length in y direction
+    - 0.0  # cy - principal point y
+  - - 0.0
+    - 0.0
+    - 1.0
+  dist_coeffs:
+  - 0.0  # k1 - radial distortion coefficient
+  - 0.0  # k2 - radial distortion coefficient
+  - 0.0  # p1 - tangential distortion coefficient
+  - 0.0  # p2 - tangential distortion coefficient
+  - 0.0  # k3 - radial distortion coefficient
+calibration:
+  portal_conversion_matrix:
+  - - 1
+    - 0
+    - 0
+    - 0
+  - - 0
+    - 1
+    - 0
+    - 0
+  - - 0
+    - 0
+    - 1
+    - 0
+  - - 0
+    - 0
+    - 0
+    - 1
+  camera_axis_conversion:
+  - - 1
+    - 0
+    - 0
+    - 0
+  - - 0
+    - 0
+    - -1
+    - 0
+  - - 0
+    - 1
+    - 0
+    - 0
+  - - 0
+    - 0
+    - 0
+    - 1

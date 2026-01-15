@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "domain-calibrator"
+version = "0.1.0"
+description = "Domain calibration using QR codes for camera pose estimation"
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [
+    "numpy>=1.20.0",
+    "opencv-python>=4.5.0",
+    "scipy>=1.7.0",
+    "Pillow>=8.0.0",
+    "pyyaml>=5.4.0",
+    "httpx>=0.24.0",
+    "pyzbar>=0.1.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-mock>=3.11.0",
+    "pytest-cov>=4.1.0",
+]
+
+[tool.setuptools]
+packages = ["domain_calibrator"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --strict-markers --tb=short"
