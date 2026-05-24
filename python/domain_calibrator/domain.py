@@ -11,6 +11,7 @@ from datetime import datetime
 import httpx
 import logging
 from typing import Optional
+import math
 
 from .http_utils import send_request, send_files
 
@@ -45,7 +46,10 @@ class Domain:
         self.api_base_url = domain_config.get("api_base_url", "https://api.auki.network")
         self.dds_base_url = domain_config.get("dds_base_url", "https://dds.auki.network")
         self.map_endpoint = domain_config.get("map_endpoint", "https://dsc.dev.aukiverse.com/spatial/crosssection")
-        
+        self.path_endpoint = domain_config.get("path_endpoint", "https://dsc.auki.network/spatial/pathfind")
+        self.restricted_dest_endpoint = domain_config.get("restricted_dest_endpoint", "https://dsc.auki.network/spatial/restricttonavmesh")
+        self.robot_radius = domain_config.get("robot_radius", 0.2)
+
         if not self.app_key or not self.app_secret:
             raise ValueError("app_key and app_secret are required in domain_config")
         
@@ -380,6 +384,87 @@ class Domain:
                     pass
             logger.error(error_msg)
             return None, None
+
+    def get_path(self, origin, target, domain_id=None):
+        if domain_id is None:
+            if not self._domain_info:
+                return None, None
+            domain_id = self._domain_info.get('id')
+        
+        if domain_id is None:
+            return None, None
+        
+        if self._domain_server is None:
+            logger.error("Domain server URL not set. Domain must be authenticated first.")
+            return None, None
+
+        method = 'POST'
+
+        url = self.path_endpoint
+        headers = {
+            'authorization': f'Bearer {self._domain_info["access_token"]}',
+            'posemesh-client-id': self._device_id
+        }
+
+        body = {
+            'domainId': domain_id,
+            'domainServerUrl': self._domain_server,
+            'wayPoints': [origin, target],
+            'radius': self.robot_radius,
+            'optimizeRoute': False
+        }
+        success, response = send_request(method, url, headers, body)
+        if not success:
+            return None, None
+        
+        response_json = json.loads(response.text)
+
+        return response_json['full']
+
+    def get_restricted_dest(self, dest, domain_id=None):
+        if domain_id is None:
+            if not self._domain_info:
+                return None, None
+            domain_id = self._domain_info.get('id')
+        
+        if domain_id is None:
+            return None, None
+        
+        if self._domain_server is None:
+            logger.error("Domain server URL not set. Domain must be authenticated first.")
+            return None, None
+
+        method = 'POST'
+        url = self.restricted_dest_endpoint
+        headers = {'authorization': f'Bearer {self._domain_info["access_token"]}'}
+
+        body = {
+            'domainId': domain_id,
+            'domainServerUrl': self._domain_server,
+            'target': dest,
+            'radius': 0.5
+        }
+
+        success, response = send_request(method, url, headers, body)
+
+        if not success:
+            return False, "Failed to get navmesh coord"
+
+        x1 = dest['x']
+        z1 = dest['z']
+        x2 = response.json()['restricted']['x']
+        z2 = response.json()['restricted']['z']
+
+        delta_x = x1 - x2
+        delta_z = z1 - z2
+
+        z2 = -abs(z2) if z2 > 0 else abs(z2)
+        pitch = round(math.atan2(delta_z, delta_x), 2)  # Result in radians, rounded to 2 decimal places
+        pitch = -abs(pitch) if pitch > 0 else abs(pitch)
+        pose = response.json()['restricted']
+        pose['pitch'] = pitch
+
+        return pose
 
     def close(self):
         """Close the HTTP client."""
