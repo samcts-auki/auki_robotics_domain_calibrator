@@ -3,6 +3,7 @@ import numpy as np
 from pyzbar import pyzbar
 import logging
 from scipy.spatial.transform import Rotation as R
+import os
 
 class Calibrator():
     def __init__(self) -> None:
@@ -24,6 +25,10 @@ class Calibrator():
         
         markers = []
         for obj in decoded_objects:
+            print(obj)
+            if obj.type != "QRCODE":
+                continue
+
             # Get the decoded data
             value = obj.data.decode('utf-8')
             
@@ -34,20 +39,28 @@ class Calibrator():
             # Extract corner points - zbar typically returns 4 corners
             # We need to format them as [x1, y1, x2, y2, x3, y3, x4, y4]
             landmarks = []
-            if len(points) >= 4:
-                # Use the first 4 points as corners
-                for i in range(4):
-                    landmarks.extend([points[i].x, points[i].y])
+            if len(points) != 4:
+                # invalid number of points
+                continue
+
+            orient = obj.orientation
+
+            if orient == 'UP':
+                points = [points[0], points[1], points[2], points[3]]
+            elif orient == 'LEFT':
+                points = [points[3], points[0], points[1], points[2]]
+            elif orient == 'DOWN':
+                points = [points[2], points[3], points[0], points[1]]
+            elif orient == 'RIGHT':
+                points = [points[1], points[2], points[3], points[0]]
             else:
-                # If we have fewer points, use rect as fallback
-                rect = obj.rect
-                landmarks = [
-                    rect.left, rect.top,
-                    rect.left + rect.width, rect.top,
-                    rect.left + rect.width, rect.top + rect.height,
-                    rect.left, rect.top + rect.height
-                ]
-            
+                # Fallback if orientation is 'UNKNOWN'
+                points = points
+
+            # Use the first 4 points as corners
+            for i in range(4):
+                landmarks.extend([points[i].x, points[i].y])
+
             markers.append(
                 {
                     'type': 0,  # QR code (matching original type)
