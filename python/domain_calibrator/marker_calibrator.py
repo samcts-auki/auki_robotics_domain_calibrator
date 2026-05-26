@@ -45,11 +45,11 @@ class Calibrator():
 
             orient = obj.orientation
 
-            if orient == 'UP':
+            if orient == 'DOWN':
                 points = [points[0], points[1], points[2], points[3]]
             elif orient == 'LEFT':
                 points = [points[3], points[0], points[1], points[2]]
-            elif orient == 'DOWN':
+            elif orient == 'UP':
                 points = [points[2], points[3], points[0], points[1]]
             elif orient == 'RIGHT':
                 points = [points[1], points[2], points[3], points[0]]
@@ -112,6 +112,14 @@ class Calibrator():
         T_Camera_QR = np.eye(4, dtype=np.float64)  # Initialize as identity
         T_Camera_QR[:3, :3] = R
         T_Camera_QR[:3, 3] = tvec.flatten()
+        T_Camera_QR = T_Camera_QR @ np.array([
+                                        [-1.0,0.0,0.0,0.0],
+                                        [0.0,1.0,0.0,0.0],
+                                        [0.0,0.0,-1.0,0.0],
+                                        [0.0,0.0,0.0,1.0]
+                                    ])
+        print(f"T_camera_qr: \n{T_Camera_QR}")
+        print(f"T_domain_qr: \n{portal['pose']}")
 
         # T Domain Camera = T_Domain_QR * T_QR_Camera
         T_Domain_Camera = portal['pose'] @ np.linalg.inv(T_Camera_QR)
