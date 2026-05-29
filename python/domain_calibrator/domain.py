@@ -18,7 +18,7 @@ from .http_utils import send_request, send_files
 logger = logging.getLogger(__name__)
 
 # Token expiration time (1 hour in seconds)
-TOKEN_EXPIRATION_TIME = 3600
+TOKEN_EXPIRATION_TIME = 1800
 
 
 def transformation_matrix(trans, quat):
@@ -79,8 +79,8 @@ class Domain:
             # Refresh tokens periodically
             import time
             self._refresh_tokens_if_needed()
-            # Wait one hour (3600 seconds) or until the stop event is set
-            self._stop_event.wait(timeout=3600)
+            # Wait half hour (1800 seconds) or until the stop event is set
+            self._stop_event.wait(timeout=1800)
 
     def _refresh_tokens_if_needed(self):
         """Refresh tokens if they're expired or about to expire."""
