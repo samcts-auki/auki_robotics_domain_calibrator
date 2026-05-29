@@ -49,6 +49,7 @@ class Domain:
         self.path_endpoint = domain_config.get("path_endpoint", "https://dsc.auki.network/spatial/pathfind")
         self.restricted_dest_endpoint = domain_config.get("restricted_dest_endpoint", "https://dsc.auki.network/spatial/restricttonavmesh")
         self.robot_radius = domain_config.get("robot_radius", 0.2)
+        self.override_domain_id = domain_config.get("override_domain_id", None)
 
         if not self.app_key or not self.app_secret:
             raise ValueError("app_key and app_secret are required in domain_config")
@@ -149,6 +150,9 @@ class Domain:
 
     def get_domain_id(self, qrshortcode):
         """Get Domain ID from QR shortcode."""
+        if self.override_domain_id:
+            return self.override_domain_id
+        
         if not self._dds_token:
             ret, msg = self.auth()
             if not ret:

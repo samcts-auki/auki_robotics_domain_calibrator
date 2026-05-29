@@ -183,7 +183,7 @@ class DomainCalibratorPy:
 
             portal = self.domain.portals().get(short_id, None)
             if portal is None:
-                print(f"Warning: {short_id} not found in domain")
+                print(f"Warning: {short_id} not found in domain domain_id: {domain_id}")
                 continue
             
             # zbar returns 4 corners = 8 values (x1, y1, x2, y2, x3, y3, x4, y4)
