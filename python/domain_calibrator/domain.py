@@ -47,6 +47,7 @@ class Domain:
         self.dds_base_url = domain_config.get("dds_base_url", "https://dds.auki.network")
         self.map_endpoint = domain_config.get("map_endpoint", "https://dsc.dev.aukiverse.com/spatial/crosssection")
         self.path_endpoint = domain_config.get("path_endpoint", "https://dsc.auki.network/spatial/pathfind")
+        self.optimized_path_endpoint = domain_config.get("optimized_path_endpoint", "https://dsc.auki.network/spatial/findoptimizedpath")
         self.restricted_dest_endpoint = domain_config.get("restricted_dest_endpoint", "https://dsc.auki.network/spatial/restricttonavmesh")
         self.robot_radius = domain_config.get("robot_radius", 0.2)
         self.override_domain_id = domain_config.get("override_domain_id", None)
@@ -425,6 +426,43 @@ class Domain:
 
         return response_json['full']
 
+    def get_optimized_path(self, waypoints, domain_id=None):
+        if domain_id is None:
+            if not self._domain_info:
+                return None, None
+            domain_id = self._domain_info.get('id')
+        
+        if domain_id is None:
+            return None, None
+        
+        if self._domain_server is None:
+            logger.error("Domain server URL not set. Domain must be authenticated first.")
+            return None, None
+
+        method = 'POST'
+
+        url = self.path_endpoint
+        headers = {
+            'authorization': f'Bearer {self._domain_info["access_token"]}',
+            'posemesh-client-id': self._device_id
+        }
+
+        body = {
+            'domainId': domain_id,
+            'domainServerUrl': self._domain_server,
+            'wayPoints': waypoints,
+            'radius': self.robot_radius,
+            'optimizeRoute': True
+        }
+        success, response = send_request(method, url, headers, body)
+        if not success:
+            return None, None
+        
+        response_json = json.loads(response.text)
+
+        return response_json['full']
+
+
     def get_restricted_dest(self, dest, domain_id=None):
         if domain_id is None:
             if not self._domain_info:
@@ -469,6 +507,35 @@ class Domain:
         pose['pitch'] = pitch
 
         return pose
+
+    def check_file_exists(self, filename, filetype):
+        url = f"{self._domain_info['domain_server']['url']}/api/v1/domains/{self._domain_info['id']}/data?data_type={filetype}"
+        headers = {'authorization': f'Bearer {self._domain_info["access_token"]}'}
+        ret, response = send_files('GET', url, headers)
+        if not ret:
+            return False, "Failed to file exists on server."
+        res_json = json.loads(response.text)
+        if len(res_json['data']) == 0:
+            return False, ""
+        for data in res_json['data']:
+            if filename == data["name"]:
+                return True, data["id"]
+        return False, ''
+
+    def get_file(self, filename, file_type):
+        ret, data_id = self.check_file_exists(filename, file_type)
+        if not ret:
+            return False, None
+
+        url = f"{self._domain_info['domain_server']['url']}/api/v1/domains/{self._domain_info['id']}/data/{data_id}?raw=true"
+        headers = {'authorization': f'Bearer {self._domain_info["access_token"]}'}
+
+        ret, response = send_files('GET', url, headers)
+        if not ret:
+            return False, None
+
+        return True, response.content
+
 
     def close(self):
         """Close the HTTP client."""
