@@ -48,8 +48,9 @@ class Domain:
         self.map_endpoint = domain_config.get("map_endpoint", "https://dsc.dev.aukiverse.com/spatial/crosssection")
         self.path_endpoint = domain_config.get("path_endpoint", "https://dsc.auki.network/spatial/pathfind")
         self.optimized_path_endpoint = domain_config.get("optimized_path_endpoint", "https://dsc.auki.network/spatial/findoptimizedpath")
+        self.optimized_segment_path_endpoint = domain_config.get("optimized_segment_path_endpoint", "https://dsc.auki.network/spatial/findoptimizedsegmentpath")
         self.restricted_dest_endpoint = domain_config.get("restricted_dest_endpoint", "https://dsc.auki.network/spatial/restricttonavmesh")
-        self.robot_radius = domain_config.get("robot_radius", 0.2)
+        self.robot_radius = domain_config.get("robot_radius", 0.4)
         self.override_domain_id = domain_config.get("override_domain_id", None)
 
         if not self.app_key or not self.app_secret:
@@ -460,6 +461,63 @@ class Domain:
         
         response_json = json.loads(response.text)
 
+        return response_json['full']
+
+
+    def get_optimized_segment_path(self, area=None, start=None, end=None, interval=None, domain_id=None):
+        """Find an optimized path over literal segments generated server-side from the
+        domain's navmesh mesh objects (one segment per mesh object, sampled along its
+        principal axis). Navmesh pathfinding applies to the connections between segments.
+
+        Args:
+            area: optional dict with any of xMin/xMax/zMin/zMax — restricts segment
+                generation to mesh vertices that fall inside this bounding box; mesh
+                objects with no vertices left inside are skipped server-side.
+            start: optional {x, y, z} dict — explicit starting point for the route,
+                overriding the default of using the first generated segment as a fixed start.
+            end: optional {x, y, z} dict — explicit destination appended after all
+                segments have been visited.
+            interval: optional float — waypoint spacing in metres along each mesh
+                object's axis (server default: 3.0).
+        Returns:
+            list[dict] of {x, y, z} points for the full path, or None on failure.
+        """
+        if domain_id is None:
+            if not self._domain_info:
+                return None
+            domain_id = self._domain_info.get('id')
+
+        if domain_id is None:
+            return None
+
+        if self._domain_server is None:
+            logger.error("Domain server URL not set. Domain must be authenticated first.")
+            return None
+
+        headers = {
+            'authorization': f'Bearer {self._domain_info["access_token"]}',
+            'posemesh-client-id': self._device_id
+        }
+
+        body = {
+            'domainId': domain_id,
+            'domainServerUrl': self._domain_server,
+            'radius': self.robot_radius,
+        }
+        if area:
+            body['area'] = area
+        if start:
+            body['start'] = start
+        if end:
+            body['end'] = end
+        if interval is not None:
+            body['interval'] = interval
+
+        success, response = send_request('POST', self.optimized_segment_path_endpoint, headers, body)
+        if not success:
+            return None
+
+        response_json = json.loads(response.text)
         return response_json['full']
 
 
