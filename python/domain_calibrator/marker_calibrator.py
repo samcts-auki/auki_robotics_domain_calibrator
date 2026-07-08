@@ -4,6 +4,7 @@ from pyzbar import pyzbar
 import logging
 from scipy.spatial.transform import Rotation as R
 import os
+from contextlib import redirect_stderr
 
 class Calibrator():
     def __init__(self) -> None:
@@ -21,11 +22,13 @@ class Calibrator():
             gray = img
         
         # Decode QR codes
-        decoded_objects = pyzbar.decode(gray)
+        with open(os.devnull, 'w') as devnull:
+            with redirect_stderr(devnull):
+                decoded_objects = pyzbar.decode(gray)
         
         markers = []
         for obj in decoded_objects:
-            print(obj)
+            # print(obj)
             if obj.type != "QRCODE":
                 continue
 
@@ -92,7 +95,7 @@ class Calibrator():
         img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
         return img, scale_factor
 
-    def camera_pose(self, portal, corners, camera_matrix, dist_coeffs):
+    def portal_pose(self, portal, corners, camera_matrix, dist_coeffs):
         # self.logger.debug(f"portal_size: {portal['size']}")
         half_size = portal['size'] / 2
         # 3D points of the QR code in its own coordinate system (Z=0 plane)
@@ -118,14 +121,16 @@ class Calibrator():
                                         [0.0,0.0,-1.0,0.0],
                                         [0.0,0.0,0.0,1.0]
                                     ])
-        print(f"T_camera_qr: \n{T_Camera_QR}")
-        print(f"T_domain_qr: \n{portal['pose']}")
+        return T_Camera_QR
+    
+    def camera_pose(self, portal, corners, camera_matrix, dist_coeffs):
+        T_Camera_QR = self.portal_pose(portal, corners, camera_matrix, dist_coeffs)
 
         # T Domain Camera = T_Domain_QR * T_QR_Camera
         T_Domain_Camera = portal['pose'] @ np.linalg.inv(T_Camera_QR)
 
         return T_Domain_Camera # T_Reference_Object
-
+    
 
 def average_transforms(transforms):
     rotations = []

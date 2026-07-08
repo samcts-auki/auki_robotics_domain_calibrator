@@ -118,6 +118,95 @@ class DomainCalibratorPy:
         # Optional camera-axis conversion (applied to camera pose only)
         self._camera_axis_conversion = camera_axis_conversion
 
+    def detect(self, cv_image):
+        """
+        Detect QR codes in image and return camera pose estimates.
+        
+        :param cv_image: OpenCV image (BGR format)
+        :return: List of transform matrices (T_Map_Camera) or None
+        """
+        global last_domain
+        
+        if self.camera_matrix is None:
+            raise ValueError("Camera matrix not set")
+        
+        # Preprocess Image
+        image, scale = self.marker_calibrator.preprocess_image(cv_image, self._detect_max_side)
+
+        # Scale camera intrinsics to match resized image
+        scaled_camera_matrix = self.camera_matrix.copy()
+        scaled_camera_matrix[0, 0] *= scale  # fx
+        scaled_camera_matrix[1, 1] *= scale  # fy
+        scaled_camera_matrix[0, 2] *= scale  # cx
+        scaled_camera_matrix[1, 2] *= scale  # cy
+        
+        # Detect Markers
+        detected_markers = []
+        markers = self.marker_calibrator.detect_markers(image)
+        
+        for marker in markers:
+            if marker['value'] is None:
+                print(f"Warning: unable to decode qr, value: {marker['value']}")
+                continue
+
+            if "HTTPS://R8.HR/" not in marker['value']:
+                print(f"Warning: detected qr is not a portal, decoding: {marker['value']}")
+                continue
+
+            short_id = marker['value'].replace("HTTPS://R8.HR/", "")
+            print(f"Detected Portal: {short_id}")
+
+            if short_id in self._domain_id_cache:
+                domain_id = self._domain_id_cache[short_id]
+            else:
+                domain_id = self.domain.get_domain_id(short_id)
+                self._domain_id_cache[short_id] = domain_id
+
+            if domain_id is None:
+                print(f"Warning: failed to get domain id for {short_id}")
+                continue
+
+            # Authenticate domain on first detection or when domain changes
+            if self._authenticated_domain_id != domain_id:
+                if last_domain is not None and last_domain != domain_id:
+                    print(f"Warning: domain changed from {last_domain} to {domain_id}")
+                last_domain = domain_id
+                ret, msg = self.domain.auth_domain(domain_id)
+
+                if not ret:
+                    print(f"Warning: failed to authenticate domain {domain_id}: {msg}")
+                    continue
+                
+                self.domain.fetch_portal_poses()
+                self._authenticated_domain_id = domain_id
+
+            portal = self.domain.portals().get(short_id, None)
+            if portal is None:
+                print(f"Warning: {short_id} not found in domain domain_id: {domain_id}")
+                continue
+            
+            # zbar returns 4 corners = 8 values (x1, y1, x2, y2, x3, y3, x4, y4)
+            if len(marker['landmarks']) == 8:
+                corners = np.array(list(zip(marker['landmarks'][::2], marker['landmarks'][1::2])), dtype=np.float32)
+                tf_matrix = self.marker_calibrator.portal_pose(
+                    portal,
+                    corners,
+                    scaled_camera_matrix,
+                    self.dist_coeffs
+                )
+                if tf_matrix is not None:
+                    detected_markers.append({
+                        "T_Camera_QR": tf_matrix,
+                        "short_id": short_id,
+                        "corners": corners
+                    })
+                else:
+                    print(f"Warning: failed to calibrate for portal {short_id}")
+            else:
+                print(f"Warning: QR code corners not detected correctly, got {len(marker['landmarks'])} values")
+
+        return detected_markers
+    
     def detect_and_calibrate(self, cv_image):
         """
         Detect QR codes in image and return camera pose estimates.
