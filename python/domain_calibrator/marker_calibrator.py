@@ -245,7 +245,6 @@ class Calibrator():
         # OpenCV camera frame, then apply the same object-local axis fix the
         # legacy cv2 path applies, so both methods share one output contract.
         T_Camera_QR = _GL_TO_CV_CAMERA @ T_gl_object
-        T_Camera_QR = T_Camera_QR @ _QR_LOCAL_AXIS_FIX
         print(f"T_Camera_QR:\n{T_Camera_QR}")
         return T_Camera_QR
 
