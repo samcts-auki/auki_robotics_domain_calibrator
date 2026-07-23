@@ -54,10 +54,10 @@ def rpy_from_matrix_scipy(mat, degrees=False):
 
 
 class DomainCalibratorPy:
-    def __init__(self, domain_config=None, camera_matrix=None, dist_coeffs=None, config_path=None):
+    def __init__(self, domain_config=None, camera_matrix=None, dist_coeffs=None, config_path=None, method=DEFAULT_METHOD):
         """
         Initialize the domain calibrator.
-        
+
         :param domain_config: dict with app_key, app_secret, map_endpoint, etc.
                           If None, will load from config file
         :param camera_matrix: 3x3 numpy array camera intrinsic matrix
@@ -65,6 +65,10 @@ class DomainCalibratorPy:
         :param dist_coeffs: distortion coefficients array
                            If None, will try to load from config
         :param config_path: Path to config YAML file (optional)
+        :param method: QR detection + pose solve method: "auki" (default,
+                       qr-lab + pnp-lab) or "pyzbar" (legacy zbar + cv2.solvePnP).
+                       Used by `detect` / `detect_and_calibrate` unless overridden
+                       per-call.
         """
         # Load config if domain_config not provided
         if domain_config is None:
@@ -98,7 +102,8 @@ class DomainCalibratorPy:
         
         self.camera_matrix = camera_matrix
         self.dist_coeffs = dist_coeffs
-        
+        self.method = method
+
         # Setup Domain
         self.domain = Domain(domain_config, portal_conversion_matrix=portal_conversion_matrix)
         ret, msg = self.domain.auth()
@@ -118,18 +123,21 @@ class DomainCalibratorPy:
         # Optional camera-axis conversion (applied to camera pose only)
         self._camera_axis_conversion = camera_axis_conversion
 
-    def detect(self, cv_image):
+    def detect(self, cv_image, method=None):
         """
         Detect QR codes in image and return camera pose estimates.
-        
+
         :param cv_image: OpenCV image (BGR format)
+        :param method: Override this instance's default method for this call
+                       only: "auki" or "pyzbar". Defaults to `self.method`.
         :return: List of transform matrices (T_Map_Camera) or None
         """
         global last_domain
-        
+        method = method or self.method
+
         if self.camera_matrix is None:
             raise ValueError("Camera matrix not set")
-        
+
         # Preprocess Image
         image, scale = self.marker_calibrator.preprocess_image(cv_image, self._detect_max_side)
 
@@ -139,11 +147,11 @@ class DomainCalibratorPy:
         scaled_camera_matrix[1, 1] *= scale  # fy
         scaled_camera_matrix[0, 2] *= scale  # cx
         scaled_camera_matrix[1, 2] *= scale  # cy
-        
+
         # Detect Markers
         detected_markers = []
-        markers = self.marker_calibrator.detect_markers(image)
-        
+        markers = self.marker_calibrator.detect_markers(image, method=method)
+
         for marker in markers:
             if marker['value'] is None:
                 print(f"Warning: unable to decode qr, value: {marker['value']}")
@@ -192,7 +200,8 @@ class DomainCalibratorPy:
                     portal,
                     corners,
                     scaled_camera_matrix,
-                    self.dist_coeffs
+                    self.dist_coeffs,
+                    method=method
                 )
                 if tf_matrix is not None:
                     detected_markers.append({
@@ -207,18 +216,21 @@ class DomainCalibratorPy:
 
         return detected_markers
     
-    def detect_and_calibrate(self, cv_image):
+    def detect_and_calibrate(self, cv_image, method=None):
         """
         Detect QR codes in image and return camera pose estimates.
-        
+
         :param cv_image: OpenCV image (BGR format)
+        :param method: Override this instance's default method for this call
+                       only: "auki" or "pyzbar". Defaults to `self.method`.
         :return: List of transform matrices (T_Map_Camera) or None
         """
         global last_domain
-        
+        method = method or self.method
+
         if self.camera_matrix is None:
             raise ValueError("Camera matrix not set")
-        
+
         # Preprocess Image
         height, width, _ = cv_image.shape
         image, scale = self.marker_calibrator.preprocess_image(cv_image, self._detect_max_side)
@@ -229,11 +241,11 @@ class DomainCalibratorPy:
         scaled_camera_matrix[1, 1] *= scale  # fy
         scaled_camera_matrix[0, 2] *= scale  # cx
         scaled_camera_matrix[1, 2] *= scale  # cy
-        
+
         # Detect Markers
         tfs = []
-        markers = self.marker_calibrator.detect_markers(image)
-        
+        markers = self.marker_calibrator.detect_markers(image, method=method)
+
         for marker in markers:
             if marker['value'] is None:
                 print(f"Warning: unable to decode qr, value: {marker['value']}")
@@ -282,7 +294,8 @@ class DomainCalibratorPy:
                     portal,
                     corners,
                     scaled_camera_matrix,
-                    self.dist_coeffs
+                    self.dist_coeffs,
+                    method=method
                 )
                 if tf_matrix is not None:
                     tfs.append(tf_matrix)

@@ -5,3 +5,7 @@ Pillow>=8.0.0
 pyyaml>=5.4.0
 httpx>=0.24.0
 pyzbar>=0.1.9
+# Not yet published to PyPI: build local wheels from the pnp-lab / qr-lab
+# repos (`scripts/build-python.sh` in each) and `pip install` those first.
+aukilabs-pnplab>=0.1.0
+qr-lab>=0.1.0

@@ -54,6 +54,7 @@ venv/
 env/
 ENV/
 .venv/
+.venv-dev/
 
 # Reference Docs
 Reference Docs/
