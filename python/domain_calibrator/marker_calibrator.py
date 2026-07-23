@@ -130,17 +130,35 @@ class Calibrator():
                 continue
 
             orient = obj.orientation
+            print(
+                f"[pyzbar] value={value!r} orientation={orient!r} "
+                f"raw_polygon={[(p.x, p.y) for p in points]} "
+                f"n_decoded_objects={len(decoded_objects)}"
+            )
 
-            if orient == 'DOWN':
-                points = [points[0], points[1], points[2], points[3]]
-            elif orient == 'LEFT':
-                points = [points[3], points[0], points[1], points[2]]
-            elif orient == 'UP':
-                points = [points[2], points[3], points[0], points[1]]
+            # Permutations empirically derived by rendering a known QR code
+            # at each of the 4 physical rotations and comparing pyzbar's raw
+            # `obj.polygon` (pre-reorder) against the known ground-truth
+            # corner positions -- NOT guessed from zbar documentation, since
+            # the previous branches here were wrong for every orientation
+            # value tested (each one produced a different, inconsistent
+            # relabeling depending on which branch fired). These 4
+            # permutations were verified to consistently produce true
+            # TL, TR, BR, BL (matching qr-lab's independently-verified
+            # convention) across all 4 rotations.
+            if orient == 'UP':
+                points = [points[0], points[3], points[2], points[1]]
             elif orient == 'RIGHT':
-                points = [points[1], points[2], points[3], points[0]]
+                points = [points[2], points[1], points[0], points[3]]
+            elif orient == 'DOWN':
+                points = [points[2], points[1], points[0], points[3]]
+            elif orient == 'LEFT':
+                points = [points[1], points[0], points[3], points[2]]
             else:
-                # Fallback if orientation is 'UNKNOWN'
+                # Fallback if orientation is 'UNKNOWN' -- not covered by the
+                # empirical test above (zbar never reported this for a clean
+                # detection); left as identity since there's no verified
+                # correction for it.
                 points = points
 
             # Use the first 4 points as corners
