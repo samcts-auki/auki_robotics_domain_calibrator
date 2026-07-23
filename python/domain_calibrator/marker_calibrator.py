@@ -206,7 +206,13 @@ class Calibrator():
         T_Camera_QR = np.eye(4, dtype=np.float64)  # Initialize as identity
         T_Camera_QR[:3, :3] = R
         T_Camera_QR[:3, 3] = tvec.flatten()
-        T_Camera_QR = T_Camera_QR @ _QR_LOCAL_AXIS_FIX
+        T_Camera_QR = T_Camera_QR @ np.array([
+            [0.0, 1.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, 0.0, -1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ])
+        print(f"T_Camera_QR:\n{T_Camera_QR}")
         return T_Camera_QR
 
     def _portal_pose_auki(self, portal, corners, camera_matrix, dist_coeffs):
@@ -240,6 +246,7 @@ class Calibrator():
         # legacy cv2 path applies, so both methods share one output contract.
         T_Camera_QR = _GL_TO_CV_CAMERA @ T_gl_object
         T_Camera_QR = T_Camera_QR @ _QR_LOCAL_AXIS_FIX
+        print(f"T_Camera_QR:\n{T_Camera_QR}")
         return T_Camera_QR
 
     def camera_pose(self, portal, corners, camera_matrix, dist_coeffs, method=DEFAULT_METHOD):
