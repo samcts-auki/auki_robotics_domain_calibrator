@@ -26,10 +26,15 @@ DEFAULT_METHOD = "auki"
 _GL_TO_CV_CAMERA = np.diag([1.0, -1.0, -1.0, 1.0])
 
 # Same object-local axis correction the legacy cv2/pyzbar path applies after
-# solvePnP (see `_portal_pose_cv2`). Applying it identically after the
-# pnp-lab solve keeps both methods' output numerically compatible, since
-# both share the same TL/TR/BR/BL square object model.
-_QR_LOCAL_AXIS_FIX = np.diag([-1.0, 1.0, -1.0, 1.0])
+# solvePnP (see `_portal_pose_cv2`): swap X/Y, negate Z. Applying it
+# identically after the pnp-lab solve keeps both methods' output numerically
+# compatible, since both share the same TL/TR/BR/BL square object model.
+_QR_LOCAL_AXIS_FIX = np.array([
+    [0.0, 1.0, 0.0, 0.0],
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 0.0, -1.0, 0.0],
+    [0.0, 0.0, 0.0, 1.0],
+])
 
 
 class Calibrator():
@@ -206,12 +211,7 @@ class Calibrator():
         T_Camera_QR = np.eye(4, dtype=np.float64)  # Initialize as identity
         T_Camera_QR[:3, :3] = R
         T_Camera_QR[:3, 3] = tvec.flatten()
-        T_Camera_QR = T_Camera_QR @ np.array([
-            [0.0, 1.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0, 0.0],
-            [0.0, 0.0, -1.0, 0.0],
-            [0.0, 0.0, 0.0, 1.0],
-        ])
+        T_Camera_QR = T_Camera_QR @ _QR_LOCAL_AXIS_FIX
         print(f"T_Camera_QR:\n{T_Camera_QR}")
         return T_Camera_QR
 
