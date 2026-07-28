@@ -216,7 +216,7 @@ class DomainCalibratorPy:
 
         return detected_markers
     
-    def detect_and_calibrate(self, cv_image, method=None):
+    def detect_and_calibrate(self, cv_image, method=None, camera_matrix=None):
         """
         Detect QR codes in image and return camera pose estimates.
 
@@ -227,16 +227,18 @@ class DomainCalibratorPy:
         """
         global last_domain
         method = method or self.method
+        if camera_matrix is not None:
+            scaled_camera_matrix = camera_matrix
+        else:
+            scaled_camera_matrix = self.camera_matrix.copy()
 
-        if self.camera_matrix is None:
+        if scaled_camera_matrix is None:
             raise ValueError("Camera matrix not set")
 
         # Preprocess Image
-        height, width, _ = cv_image.shape
         image, scale = self.marker_calibrator.preprocess_image(cv_image, self._detect_max_side)
 
         # Scale camera intrinsics to match resized image
-        scaled_camera_matrix = self.camera_matrix.copy()
         scaled_camera_matrix[0, 0] *= scale  # fx
         scaled_camera_matrix[1, 1] *= scale  # fy
         scaled_camera_matrix[0, 2] *= scale  # cx
